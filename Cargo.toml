@@ -1,5 +1,5 @@
 [package]
-name = "rust-fah-pauser"
+name = "fah-pauser"
 version = "0.1.0"
 authors = ["Makoto <makoto@emurasoft.com>"]
 edition = "2018"

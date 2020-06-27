@@ -159,6 +159,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fah-pauser"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "error-chain",
+ "fahapi",
+ "lazy_static",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
 name = "fahapi"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -400,18 +412,6 @@ dependencies = [
  "blake2b_simd",
  "constant_time_eq",
  "crossbeam-utils",
-]
-
-[[package]]
-name = "rust-fah-pauser"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "error-chain",
- "fahapi",
- "lazy_static",
- "serde",
- "serde_yaml",
 ]
 
 [[package]]
