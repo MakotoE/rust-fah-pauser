@@ -65,7 +65,7 @@ struct Config {
 fn pause_on() -> Result<Vec<String>> {
     let mut config_path = dirs::home_dir().unwrap();
     config_path.push(".config");
-    config_path.push("fah-pauser-daemon.yml");
+    config_path.push("fah-pauser.yml");
 
     let file = std::fs::File::open(config_path)?;
     let config: Config = serde_yaml::from_reader(file)?;
