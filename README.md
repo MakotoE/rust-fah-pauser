@@ -8,4 +8,4 @@ PauseOn:
 - rFactor2.exe
 ```
 
-The system processes list is polled once every minute.
+fah-pauser checks the process list every minute.
