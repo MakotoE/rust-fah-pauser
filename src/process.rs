@@ -68,13 +68,13 @@ pub fn found_process(process_names: &[String]) -> Result<bool> {
 }
 
 #[cfg(windows)]
-fn chars_equal(s: &str, chars: &[winapi::um::winnt::CHAR]) -> bool {
-    if chars.len() != s.len() {
-        return false;
-    }
-
+fn chars_equal(s: &str, chars: &[winapi::um::winnt::CHAR; 260]) -> bool {
     let mut s_iter = s.bytes();
-    for &c in chars {
+    for (i, &c) in chars.iter().enumerate() {
+        if c == 0 {
+            return i == s.len();
+        }
+
         if let Some(s_byte) = s_iter.next() {
             if c as u8 != s_byte {
                 return false;
@@ -123,7 +123,7 @@ mod tests {
             },
             Test {
                 s: "",
-                chars: &[0],
+                chars: &[1],
                 expected: false,
             },
             Test {
@@ -134,7 +134,11 @@ mod tests {
         ];
 
         for (i, test) in tests.iter().enumerate() {
-            assert_eq!(chars_equal(test.s, test.chars), test.expected, "{}", i);
+            let mut chars: [winapi::um::winnt::CHAR; 260] = [0; 260];
+            for (i, &c) in test.chars.iter().enumerate() {
+                chars[i] = c;
+            }
+            assert_eq!(chars_equal(test.s, &chars), test.expected, "{}", i);
         }
     }
 
