@@ -1,3 +1,5 @@
+#![feature(test)]
+
 mod process;
 
 fn main() -> Result<()> {

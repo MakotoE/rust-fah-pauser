@@ -1,4 +1,5 @@
 use super::*;
+extern crate test;
 
 #[cfg(windows)]
 extern crate winapi;
@@ -85,7 +86,7 @@ fn chars_equal(s: &str, chars: &[winapi::um::winnt::CHAR]) -> bool {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
@@ -132,5 +133,11 @@ mod test {
         for (i, test) in tests.iter().enumerate() {
             assert_eq!(chars_equal(test.s, test.chars), test.expected, "{}", i);
         }
+    }
+
+    #[bench]
+    fn bench_found_process(b: &mut test::Bencher) {
+        // Windows: test process::tests::bench_found_process ... bench:   2,798,980 ns/iter (+/- 180,655)
+        b.iter(|| found_process(&[]));
     }
 }
