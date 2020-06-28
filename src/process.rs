@@ -141,6 +141,7 @@ mod tests {
     #[bench]
     fn bench_found_process(b: &mut test::Bencher) {
         // Windows: test process::tests::bench_found_process ... bench:   2,798,980 ns/iter (+/- 180,655)
+        // Linux:   test process::tests::bench_found_process ... bench:     451,138 ns/iter (+/- 8,552)
         b.iter(|| found_process(&[]));
     }
 }
