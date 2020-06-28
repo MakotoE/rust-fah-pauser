@@ -1,8 +1,10 @@
+#![feature(test)]
+
 mod process;
 
 fn main() -> Result<()> {
     let verbose = verbose();
-    let pause_on = convert_strings(pause_on()?.as_slice());
+    let pause_on = pause_on()?;
 
     let mut api = connect()?;
 
@@ -12,14 +14,16 @@ fn main() -> Result<()> {
 
     loop {
         if process::found_process(pause_on.as_slice())? {
-            if !paused { // Found process; fah is unpaused
+            if !paused {
+                // Found process; fah is unpaused
                 api.pause_all()?;
                 paused = true;
                 if verbose {
                     eprintln!("pausing fah")
                 }
             }
-        } else if paused { // No process found; fah is paused
+        } else if paused {
+            // No process found; fah is paused
             api.unpause_all()?;
             paused = false;
             if verbose {
@@ -50,7 +54,7 @@ error_chain::error_chain! {
 fn verbose() -> bool {
     if let Some(flag) = std::env::args().nth(1) {
         if flag == "-v" || flag == "--verbose" {
-            return true
+            return true;
         }
     }
     false
@@ -72,14 +76,6 @@ fn pause_on() -> Result<Vec<String>> {
     Ok(config.pause_on)
 }
 
-fn convert_strings(strings: &[String]) -> Vec<std::ffi::OsString> {
-    let mut result: Vec<std::ffi::OsString> = Vec::new();
-    for s in strings {
-        result.push(s.into());
-    }
-    result
-}
-
 fn connect() -> Result<fahapi::API> {
     loop {
         let timeout = std::time::Duration::from_micros(500);
@@ -88,7 +84,7 @@ fn connect() -> Result<fahapi::API> {
             Err(_) => {
                 eprintln!("connection error; trying again after a bit");
                 std::thread::sleep(std::time::Duration::from_secs(30));
-            },
+            }
         }
     }
 }
