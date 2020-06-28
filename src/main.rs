@@ -1,4 +1,3 @@
-#![windows_subsystem = "windows"]
 #![feature(test)]
 
 mod process;
