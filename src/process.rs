@@ -1,9 +1,12 @@
 use super::*;
 extern crate test;
 
-#[cfg(windows)] extern crate winapi;
-#[cfg(windows)] use winapi::um::handleapi::INVALID_HANDLE_VALUE;
-#[cfg(windows)] use winapi::um::tlhelp32::{
+#[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
+use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+#[cfg(windows)]
+use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
 };
 
@@ -35,7 +38,7 @@ pub fn found_process(process_names: &[String]) -> Result<bool> {
 }
 
 fn command_file_name(command: &str) -> Result<String> {
-    let mut command_parts = command.split_whitespace();
+    let mut command_parts = command.split([' ', '\0'].as_ref());
     let path = match command_parts.next() {
         Some(mut s) => {
             if s == "/bin/sh" || s == "/bin/bash" {
@@ -46,7 +49,7 @@ fn command_file_name(command: &str) -> Result<String> {
             }
 
             s
-        },
+        }
         None => command,
     };
 
@@ -146,13 +149,22 @@ mod tests {
                 expected: "b",
             },
             Test {
+                command: "/a/b\0-c",
+                expected: "b",
+            },
+            Test {
                 command: "/bin/sh a",
                 expected: "a",
             },
         ];
 
         for (i, test) in tests.iter().enumerate() {
-            assert_eq!(command_file_name(test.command).unwrap(), test.expected, "{}", i);
+            assert_eq!(
+                command_file_name(test.command).unwrap(),
+                test.expected,
+                "{}",
+                i
+            );
         }
     }
 
@@ -205,7 +217,7 @@ mod tests {
     #[bench]
     fn bench_found_process(b: &mut test::Bencher) {
         // Windows: test process::tests::bench_found_process ... bench:   2,798,980 ns/iter (+/- 180,655)
-        // Linux:   test process::tests::bench_found_process ... bench:     890,897 ns/iter (+/- 64,361)
+        // Linux:   test process::tests::bench_found_process ... bench:     954,388 ns/iter (+/- 63,954)
         b.iter(|| found_process(&[]));
     }
 }
