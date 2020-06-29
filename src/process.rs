@@ -1,23 +1,34 @@
 use super::*;
 extern crate test;
 
-#[cfg(windows)] extern crate winapi;
-#[cfg(windows)] use winapi::um::handleapi::INVALID_HANDLE_VALUE;
-#[cfg(windows)] use winapi::um::tlhelp32::{
+#[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
+use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+#[cfg(windows)]
+use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
 };
 
 #[cfg(target_family = "unix")]
 pub fn found_process(process_names: &[String]) -> Result<bool> {
-    let output = std::process::Command::new("ps")
-        .args(&["-a", "-x", "-o", "command", "--no-headers"])
-        .output()?;
+    use std::io::Read;
 
-    for command in output.stdout.split(|&b| b == b'\n') {
-        if let Ok(name) = command_file_name(command) {
-            for process_name in process_names {
-                if process_name == &name {
-                    return Ok(true)
+    let mut buffer = String::new();
+
+    for pid_entry in std::fs::read_dir("/proc")? {
+        let mut cmdline_path = std::ffi::OsString::from("/proc/");
+        cmdline_path.push(pid_entry?.file_name());
+        cmdline_path.push("/cmdline");
+
+        if let Ok(mut file) = std::fs::File::open(cmdline_path) {
+            buffer.clear();
+            file.read_to_string(&mut buffer)?;
+            if let Ok(name) = command_file_name(buffer.as_str()) {
+                for process_name in process_names {
+                    if process_name == &name {
+                        return Ok(true);
+                    }
                 }
             }
         }
@@ -26,11 +37,11 @@ pub fn found_process(process_names: &[String]) -> Result<bool> {
     Ok(false)
 }
 
-fn command_file_name(command: &[u8]) -> Result<String> {
-    let mut command_parts = command.split(|&b| b == b' ');
+fn command_file_name(command: &str) -> Result<String> {
+    let mut command_parts = command.split([' ', '\0'].as_ref());
     let path = match command_parts.next() {
         Some(mut s) => {
-            if s == b"/bin/sh" || s == b"/bin/bash" {
+            if s == "/bin/sh" || s == "/bin/bash" {
                 // Get name of script
                 if let Some(script) = command_parts.next() {
                     s = script;
@@ -38,11 +49,11 @@ fn command_file_name(command: &[u8]) -> Result<String> {
             }
 
             s
-        },
+        }
         None => command,
     };
 
-    match std::path::Path::new(std::str::from_utf8(path)?).file_name() {
+    match std::path::Path::new(path).file_name() {
         Some(name) => match name.to_str() {
             Some(name_str) => Ok(name_str.to_string()),
             None => Err("invalid name".into()),
@@ -120,31 +131,40 @@ mod tests {
     #[test]
     fn test_command_file_name() {
         struct Test {
-            command: &'static [u8],
+            command: &'static str,
             expected: &'static str,
         }
 
         let tests: Vec<Test> = vec![
             Test {
-                command: b"",
+                command: "",
                 expected: "",
             },
             Test {
-                command: b"a",
+                command: "a",
                 expected: "a",
             },
             Test {
-                command: b"/a/b",
+                command: "/a/b",
                 expected: "b",
             },
             Test {
-                command: b"/bin/sh a",
+                command: "/a/b\0-c",
+                expected: "b",
+            },
+            Test {
+                command: "/bin/sh a",
                 expected: "a",
             },
         ];
 
         for (i, test) in tests.iter().enumerate() {
-            assert_eq!(command_file_name(test.command).unwrap(), test.expected, "{}", i);
+            assert_eq!(
+                command_file_name(test.command).unwrap(),
+                test.expected,
+                "{}",
+                i
+            );
         }
     }
 
@@ -197,7 +217,7 @@ mod tests {
     #[bench]
     fn bench_found_process(b: &mut test::Bencher) {
         // Windows: test process::tests::bench_found_process ... bench:   2,798,980 ns/iter (+/- 180,655)
-        // Linux:   test process::tests::bench_found_process ... bench:   7,768,935 ns/iter (+/- 878,042)
+        // Linux:   test process::tests::bench_found_process ... bench:     954,388 ns/iter (+/- 63,954)
         b.iter(|| found_process(&[]));
     }
 }
