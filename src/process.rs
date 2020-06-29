@@ -9,25 +9,46 @@ extern crate test;
 
 #[cfg(target_family = "unix")]
 pub fn found_process(process_names: &[String]) -> Result<bool> {
-    for pid_entry in std::fs::read_dir("/proc")? {
-        let mut exe_path = std::ffi::OsString::from("/proc/");
-        exe_path.push(pid_entry?.file_name());
-        exe_path.push("/exe");
+    let output = std::process::Command::new("ps")
+        .args(&["-a", "-x", "-o", "command", "--no-headers"])
+        .output()?;
 
-        if let Ok(link_path) = std::fs::read_link(exe_path) {
+    for command in output.stdout.split(|&b| b == b'\n') {
+        if let Ok(name) = command_file_name(command) {
             for process_name in process_names {
-                if let Some(file_name) = link_path.file_name() {
-                    if let Some(file_name_str) = file_name.to_str() {
-                        if file_name_str == process_name {
-                            return Ok(true);
-                        }
-                    }
+                if process_name == &name {
+                    return Ok(true)
                 }
             }
         }
     }
 
     Ok(false)
+}
+
+fn command_file_name(command: &[u8]) -> Result<String> {
+    let mut command_parts = command.split(|&b| b == b' ');
+    let path = match command_parts.next() {
+        Some(mut s) => {
+            if s == b"/bin/sh" || s == b"/bin/bash" {
+                // Get name of script
+                if let Some(script) = command_parts.next() {
+                    s = script;
+                }
+            }
+
+            s
+        },
+        None => command,
+    };
+
+    match std::path::Path::new(std::str::from_utf8(path)?).file_name() {
+        Some(name) => match name.to_str() {
+            Some(name_str) => Ok(name_str.to_string()),
+            None => Err("invalid name".into()),
+        },
+        None => Ok("".into()),
+    }
 }
 
 #[cfg(target_family = "windows")]
@@ -94,6 +115,37 @@ mod tests {
     #[test]
     fn test_found_process() {
         process::found_process(Vec::new().as_slice()).unwrap();
+    }
+
+    #[test]
+    fn test_command_file_name() {
+        struct Test {
+            command: &'static [u8],
+            expected: &'static str,
+        }
+
+        let tests: Vec<Test> = vec![
+            Test {
+                command: b"",
+                expected: "",
+            },
+            Test {
+                command: b"a",
+                expected: "a",
+            },
+            Test {
+                command: b"/a/b",
+                expected: "b",
+            },
+            Test {
+                command: b"/bin/sh a",
+                expected: "a",
+            },
+        ];
+
+        for (i, test) in tests.iter().enumerate() {
+            assert_eq!(command_file_name(test.command).unwrap(), test.expected, "{}", i);
+        }
     }
 
     #[test]

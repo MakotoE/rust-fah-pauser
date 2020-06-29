@@ -44,6 +44,7 @@ error_chain::error_chain! {
         IO(std::io::Error);
         YAML(serde_yaml::Error);
         FAH(fahapi::Error);
+        UTF8(std::str::Utf8Error);
     }
 
     errors {
