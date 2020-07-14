@@ -2,7 +2,9 @@
 
 mod process;
 
-fn main() -> Result<()> {
+error_chain::quick_main!(run);
+
+fn run() -> Result<()> {
     let verbose = verbose();
     let pause_on = pause_on()?;
 
