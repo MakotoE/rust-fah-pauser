@@ -8,14 +8,24 @@ fn run() -> Result<()> {
     let verbose = verbose();
     let pause_on = pause_on()?;
 
-    let mut api = connect()?;
+    loop {
+        let mut api = connect()?;
+        api.unpause_all()?;
 
-    api.unpause_all()?;
+        match monitor_loop(&mut api, verbose, &pause_on) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("{}", e);
+            }
+        }
+    }
+}
 
+fn monitor_loop(api: &mut fahapi::API, verbose: bool, pause_on: &[String]) -> Result<()> {
     let mut paused = false;
 
     loop {
-        if process::found_process(pause_on.as_slice())? {
+        if process::found_process(pause_on)? {
             if !paused {
                 // Found process; fah is unpaused
                 api.pause_all()?;
@@ -81,11 +91,10 @@ fn pause_on() -> Result<Vec<String>> {
 
 fn connect() -> Result<fahapi::API> {
     loop {
-        let timeout = std::time::Duration::from_micros(500);
+        let timeout = std::time::Duration::from_secs(1);
         match fahapi::API::connect_timeout(&fahapi::DEFAULT_ADDR, timeout) {
             Ok(api) => return Ok(api),
             Err(_) => {
-                eprintln!("connection error; trying again after a bit");
                 std::thread::sleep(std::time::Duration::from_secs(30));
             }
         }
