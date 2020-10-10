@@ -6,13 +6,21 @@ error_chain::quick_main!(run);
 
 fn run() -> Result<()> {
     let verbose = verbose();
-    let pause_on = pause_on()?;
+    let config = config()?;
 
+    let mut first_loop = true;
     loop {
         let mut api = connect()?;
-        api.unpause_all()?;
+        if first_loop {
+            if config.start_paused {
+                api.pause_all()?;
+            } else {
+                api.unpause_all()?;
+            }
+            first_loop = false;
+        }
 
-        match monitor_loop(&mut api, verbose, &pause_on) {
+        match monitor_loop(&mut api, verbose, &config) {
             Ok(_) => {}
             Err(e) => {
                 eprintln!("{}", e);
@@ -21,11 +29,11 @@ fn run() -> Result<()> {
     }
 }
 
-fn monitor_loop(api: &mut fahapi::API, verbose: bool, pause_on: &[String]) -> Result<()> {
-    let mut paused = false;
+fn monitor_loop(api: &mut fahapi::API, verbose: bool, config: &Config) -> Result<()> {
+    let mut paused = config.start_paused;
 
     loop {
-        if process::found_process(pause_on)? {
+        if process::found_process(&config.pause_on)? {
             if !paused {
                 // Found process; fah is unpaused
                 api.pause_all()?;
@@ -58,10 +66,6 @@ error_chain::error_chain! {
         FAH(fahapi::Error);
         UTF8(std::str::Utf8Error);
     }
-
-    errors {
-
-    }
 }
 
 fn verbose() -> bool {
@@ -77,16 +81,17 @@ fn verbose() -> bool {
 #[serde(rename_all = "PascalCase")]
 struct Config {
     pause_on: Vec<String>,
+    #[serde(default)]
+    start_paused: bool,
 }
 
-fn pause_on() -> Result<Vec<String>> {
+fn config() -> Result<Config> {
     let mut config_path = dirs::home_dir().unwrap();
     config_path.push(".config");
     config_path.push("fah-pauser.yml");
 
     let file = std::fs::File::open(config_path)?;
-    let config: Config = serde_yaml::from_reader(file)?;
-    Ok(config.pause_on)
+    Ok(serde_yaml::from_reader(file)?)
 }
 
 fn connect() -> Result<fahapi::API> {
