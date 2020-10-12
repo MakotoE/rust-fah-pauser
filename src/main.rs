@@ -8,50 +8,63 @@ fn run() -> Result<()> {
     let verbose = verbose();
     let config = config()?;
 
-    let mut first_loop = true;
-    loop {
-        let mut api = connect()?;
-        if first_loop {
-            if config.start_paused {
-                api.pause_all()?;
-            } else {
-                api.unpause_all()?;
-            }
-            first_loop = false;
+    Context {
+        api: None,
+        verbose,
+        pause_on: config.pause_on,
+        paused: config.start_paused,
+    }.start()
+}
+
+struct Context {
+    api: Option<fahapi::API>,
+    verbose: bool,
+    pause_on: Vec<String>,
+    paused: bool,
+}
+
+impl Context {
+    fn start(&mut self) -> Result<()> {
+        self.api = Some(connect()?);
+        if self.paused {
+            self.api.as_mut().unwrap().pause_all()?;
+        } else {
+            self.api.as_mut().unwrap().unpause_all()?;
         }
 
-        match monitor_loop(&mut api, verbose, &config) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("{}", e);
+        loop {
+            match self.monitor_loop() {
+                Ok(_) => unreachable!(),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    self.api = Some(connect()?);
+                }
             }
         }
     }
-}
 
-fn monitor_loop(api: &mut fahapi::API, verbose: bool, config: &Config) -> Result<()> {
-    let mut paused = config.start_paused;
-
-    loop {
-        if process::found_process(&config.pause_on)? {
-            if !paused {
-                // Found process; fah is unpaused
-                api.pause_all()?;
-                paused = true;
-                if verbose {
-                    eprintln!("pausing fah")
+    fn monitor_loop(&mut self) -> Result<()> {
+        loop {
+            if process::found_process(&self.pause_on)? {
+                if !self.paused {
+                    // Found process; fah is unpaused
+                    self.api.as_mut().unwrap().pause_all()?;
+                    self.paused = true;
+                    if self.verbose {
+                        eprintln!("pausing fah")
+                    }
+                }
+            } else if self.paused {
+                // No process found; fah is paused
+                self.api.as_mut().unwrap().unpause_all()?;
+                self.paused = false;
+                if self.verbose {
+                    eprintln!("unpausing fah")
                 }
             }
-        } else if paused {
-            // No process found; fah is paused
-            api.unpause_all()?;
-            paused = false;
-            if verbose {
-                eprintln!("unpausing fah")
-            }
-        }
 
-        std::thread::sleep(std::time::Duration::from_secs(60));
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        }
     }
 }
 
